@@ -7,15 +7,25 @@ import "net/http"
 func main() {
 	fmt.Println("Running Host Ping")
 
-	host := &PingHost {
-		Url: "http://www.google.com",
-		SuccessPorts: []int { 401, 403, 500 } ,
-		Timeout: 5,
+	hosts := []PingHost { 
+		PingHost {
+			Url: "http://www.google.com",
+			SuccessPorts: []int { 401, 403, 500 } ,
+			Timeout: 5,
+		},
+		PingHost {
+			Url: "http://www.nonexistentdomainatdotcom.com",
+			SuccessPorts: []int { 401, 403, 500 } ,
+			Timeout: 1,
+		},
 	}
-	host.Ping()
+	for _, h := range hosts {
+		h.Ping()
+	}
 }
 
 func (target PingHost) Ping() {
+	success := false
 	var timeout int
 	if target.Timeout > 0 {
 		timeout = target.Timeout
@@ -26,16 +36,20 @@ func (target PingHost) Ping() {
 	client := &http.Client{
 		Timeout: time.Second * time.Duration(timeout),
 	}
+	fmt.Printf("Attempting to ping %v\n", target.Url)
 	resp, err := client.Get(target.Url)
 
-	if err != nil {
-		fmt.Println(err)
+	if (err != nil || (intInSlice(resp.StatusCode, target.SuccessPorts) == false)) {
+		if err != nil {
+			fmt.Printf("%v\n", err)
+		} else {
+			defer resp.Body.Close()
+			fmt.Printf("Ping Fail: Expected %v status, received %v \n", target.SuccessPorts, resp.StatusCode)
+		}
+	} else {
+		success = true
 	}
-	defer resp.Body.Close()
-
-	if intInSlice(resp.StatusCode, target.SuccessPorts) == false {
-		fmt.Printf("Ping Fail: Expected %v status, received %v", target.SuccessPorts, resp.StatusCode)
-	}
+	fmt.Printf("Success: %v\n\n", success)
 }
 
 func intInSlice(a int, list []int) bool {
